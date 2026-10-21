@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "node --experimental-strip-types --test src/services/__tests__/localBoardStorage.test.ts",
+    "test": "node --experimental-strip-types --test src/services/__tests__/localBoardStorage.test.ts src/utils/__tests__/cardSearch.test.ts",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",

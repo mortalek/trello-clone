@@ -4,6 +4,7 @@ import Draggable from 'vuedraggable';
 import ModalDialog from './components/ModalDialog.vue';
 import type { Card , List } from '@/types';
 import { browserStorage, initializeBoardState, saveBoardState } from './services/localBoardStorage.ts';
+import { filterListsByCardTitle } from './utils/cardSearch.ts';
 
 const initialLists: List[] = [
   {
@@ -58,6 +59,11 @@ watch(lists, () => {
 const isModalOpen = ref(false);
 const editingCard = ref<Card | null>(null);
 const editingListIndex = ref<number | null>(null);
+const searchQuery = ref('');
+
+const filteredLists = computed(() => filterListsByCardTitle(lists, searchQuery.value));
+const matchingCards = computed(() => new Set(filteredLists.value.flatMap((list) => list.cards)));
+const normalizedSearchQuery = computed(() => searchQuery.value.trim());
 
 const modalMode = computed(() => editingCard.value === null ? 'add' : 'edit');
 
@@ -111,12 +117,33 @@ const closeModal = () => {
     <p v-if="persistenceError" role="alert" class="mb-4 rounded bg-amber-100 p-3 text-amber-900">
       {{ persistenceError }}
     </p>
+    <label class="mb-3 block max-w-md text-sm font-medium text-gray-700">
+      Search cards by title
+      <input
+        v-model="searchQuery"
+        type="search"
+        aria-label="Search cards by title"
+        placeholder="Search cards..."
+        class="mt-1 w-full rounded border border-gray-300 bg-white p-2 font-normal"
+      />
+    </label>
+    <p
+      v-if="normalizedSearchQuery && matchingCards.size === 0"
+      role="status"
+      class="mb-3 text-sm text-gray-600"
+    >
+      No cards found for “{{ normalizedSearchQuery }}”.
+    </p>
     <div class="flex gap-5 py-5 overflow-x-auto">
       <div class="bg-gray-100 p-3 rounded-lg min-w-[250px] flex flex-col" v-for="(list, listIndex) in lists" :key="list.id">
         <h2 class="font-medium mb-2">{{ list.title }}</h2>
         <Draggable :list="list.cards" group="cards" item-key="id">
           <template #item="{element}">
-            <div @click="openModal(listIndex, element)" class="bg-white p-2 my-2 rounded shadow cursor-pointer">
+            <div
+              v-show="!normalizedSearchQuery || matchingCards.has(element)"
+              @click="openModal(listIndex, element)"
+              class="bg-white p-2 my-2 rounded shadow cursor-pointer"
+            >
               <span class="text-sm font-medium">{{ element.title }}</span>
               <p class="text-xs text-gray-400">{{ element.description }}</p>
             </div>
