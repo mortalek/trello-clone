@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import Draggable from 'vuedraggable';
 import ModalDialog from './components/ModalDialog.vue';
 import type { Card , List } from '@/types';
+import { browserStorage, initializeBoardState, saveBoardState } from './services/localBoardStorage.ts';
 
-const lists = reactive<List[]>([
+const initialLists: List[] = [
   {
     id: 1,
     title: 'To Do',
@@ -26,7 +27,34 @@ const lists = reactive<List[]>([
     title: 'Done',
     cards: [{ id: 5, title: 'Task 5', description: 'Description for Task 5' }]
   }
-])
+]
+const initialization = initializeBoardState(browserStorage, initialLists)
+const lists = reactive<List[]>(initialization.lists)
+const persistenceReady = ref(initialization.status === 'ready')
+const persistenceError = ref<string | null>(null)
+
+if (initialization.status === 'load-error') {
+  console.error('Unable to load the saved board state.', initialization.error)
+  persistenceError.value = 'The saved board could not be loaded. Changes will not be saved to protect existing data.'
+} else if (initialization.error !== undefined) {
+  console.error('Unable to initialize the saved board state.', initialization.error)
+  persistenceError.value = 'The board could not be saved. Your changes are still available in this session.'
+}
+
+watch(lists, () => {
+  if (!persistenceReady.value) {
+    return
+  }
+
+  try {
+    saveBoardState(browserStorage, lists)
+    persistenceError.value = null
+  } catch (error) {
+    console.error('Unable to save the board state.', error)
+    persistenceError.value = 'The board could not be saved. Your changes are still available in this session.'
+  }
+}, { deep: true })
+
 const isModalOpen = ref(false);
 const editingCard = ref<Card | null>(null);
 const editingListIndex = ref<number | null>(null);
@@ -80,6 +108,9 @@ const closeModal = () => {
 
 <template>
   <main class="p-5 font-sans">
+    <p v-if="persistenceError" role="alert" class="mb-4 rounded bg-amber-100 p-3 text-amber-900">
+      {{ persistenceError }}
+    </p>
     <div class="flex gap-5 py-5 overflow-x-auto">
       <div class="bg-gray-100 p-3 rounded-lg min-w-[250px] flex flex-col" v-for="(list, listIndex) in lists" :key="list.id">
         <h2 class="font-medium mb-2">{{ list.title }}</h2>
